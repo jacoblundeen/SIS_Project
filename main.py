@@ -13,21 +13,31 @@ import random
 
 random.seed(49)
 
-def avg_stats(data: List[List]) -> List[List]:
+# avg_stats() calculates the average stats, per 28 minutes, for every player in their last 5 games of the regular
+# season.
+def avg_stats(data: List[List]):
+    df_28 = pd.DataFrame(columns=['PLAYER_ID', 'FGM', 'FGA', 'FG3M', 'FG3A', 'FTM', 'FTA', 'OREB', 'DREB', 'REB', 'AST',
+                                  'TOV', 'STL', 'BLK', 'BLKA', 'PF', 'PFD', 'PTS', 'PLUS_MINUS', 'FG_PCT', 'FG3_PCT',
+                                  'FT_PCT'])
     player_df = data.query('PLAYOFFS == "No"')
     player_ids = player_df['PLAYER_ID'].unique()
+    for player in player_ids:
+        player_df = data[data['PLAYER_ID'] == player]
+        player_df = player_df.sort_values(by='game_date', ascending=False).head(5)
+        player_df.drop(columns=['GAME_ID', 'game_date', 'TEAM', 'TEAM_ID', 'PERIOD', 'PLAYER_ID',
+                             'MIN', 'PLAYER_NAME', 'PLAYOFFS'], inplace=True)
+        player_df = player_df.sum(axis=0).div(28)
+        player_df = pd.DataFrame(player_df).transpose()
+        player_df['PLAYER_ID'] = player
 
-    player_df = data[data['PLAYER_ID'] == player_ids[0]]
-    player = player_df.sort_values(by='game_date', ascending=False).head(5)
-    player.drop(columns=['GAME_ID', 'game_date', 'TEAM', 'TEAM_ID', 'PERIOD', 'PLAYER_ID',
-                         'MIN', 'PLAYER_NAME', 'PLAYOFFS'], inplace=True)
-    player = player.sum(axis=0).div(28)
-    player['PLAYER_ID'] = player_ids[0]
-    player = pd.DataFrame(player).transpose()
-    player = player.loc[:, ['PLAYER_ID', 'FGM', 'FGA', 'FG3M', 'FG3A', 'FTM', 'FTA', 'OREB', 'DREB', 'REB', 'AST',
-                            'TOV', 'STL', 'BLK', 'BLKA', 'PF', 'PFD', 'PTS', 'PLUS_MINUS', 'FG_PCT', 'FG3_PCT', 'FT_PCT']]
-    print(player)
+        player_df = player_df.loc[:, ['PLAYER_ID', 'FGM', 'FGA', 'FG3M', 'FG3A', 'FTM', 'FTA', 'OREB', 'DREB', 'REB', 'AST',
+                                'TOV', 'STL', 'BLK', 'BLKA', 'PF', 'PFD', 'PTS', 'PLUS_MINUS', 'FG_PCT', 'FG3_PCT',
+                                'FT_PCT']]
+        df_28 = pd.concat([df_28, player_df], ignore_index=True)
+    df_28.to_csv('players_per_28.csv', index=False)
 
+
+# playoffs() identifies which games were in the regular season, the play-in tournament, or the playoffs.
 def playoffs(data: List[List]) -> List[List]:
     reg_date = datetime.datetime(2022, 5, 12)
     playoff_date = datetime.datetime(2022, 5, 15)
@@ -44,6 +54,9 @@ def playoffs(data: List[List]) -> List[List]:
             playoffs.append('None')
     data['PLAYOFFS'] = playoffs
     return data
+
+def playoff_teams(data: List[List]):
+
 
 def main():
     df = pd.read_csv("nba_player_game_logs.csv")
