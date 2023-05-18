@@ -14,11 +14,13 @@ import random
 random.seed(49)
 
 def avg_stats(data: List[List]) -> List[List]:
-    player_ids = data['PLAYER_ID'].unique()
+    player_df = data.query('PLAYOFFS == "No"')
+    player_ids = player_df['PLAYER_ID'].unique()
+
     player_df = data[data['PLAYER_ID'] == player_ids[0]]
     player = player_df.sort_values(by='game_date', ascending=False).head(5)
     player.drop(columns=['GAME_ID', 'game_date', 'TEAM', 'TEAM_ID', 'PERIOD', 'PLAYER_ID',
-                         'MIN', 'PLAYER_NAME'], inplace=True)
+                         'MIN', 'PLAYER_NAME', 'PLAYOFFS'], inplace=True)
     player = player.sum(axis=0).div(28)
     player['PLAYER_ID'] = player_ids[0]
     player = pd.DataFrame(player).transpose()
