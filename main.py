@@ -67,9 +67,19 @@ def playoff_teams(data: List[List]):
         playoff_players = playoff_players['PLAYER_NAME'].unique()
         regs = np.setdiff1d(regular_players, playoff_players)
         plays = np.setdiff1d(playoff_players, regular_players)
-        df = data[data['PLAYER_NAME'].isin(regs)][['PLAYER_ID', 'PLAYER_NAME']]
+        # df = data[data['PLAYER_NAME'].isin(regs)][['PLAYER_ID', 'PLAYER_NAME']]
+        temp = find_player_id(data, regs)
     pass
 
+def find_player_id(data: List[List], players: List) -> Dict:
+    temp = {}
+    if not np.any(players):
+        return temp
+    else:
+        for player in players:
+            id = data[data['PLAYER_NAME'] == player]['PLAYER_ID'].head(1)
+            temp.update({id.iloc[0]: player})
+    return temp
 
 def main():
     df = pd.read_csv("nba_player_game_logs.csv")
