@@ -55,6 +55,8 @@ def playoffs(data: List[List]) -> List[List]:
     data['PLAYOFFS'] = playoffs
     return data
 
+# playoff_teams() determines which players only played during the regular season and which only played during the
+# playoffs and outputs those lists to CSV files.
 def playoff_teams(data: List[List]):
     regular_df = pd.DataFrame(columns=['PLAYER_ID', 'PLAYER_NAME'])
     playoff_df = pd.DataFrame(columns=['PLAYER_ID', 'PLAYER_NAME'])
@@ -67,25 +69,29 @@ def playoff_teams(data: List[List]):
         playoff_players = playoff_players['PLAYER_NAME'].unique()
         regs = np.setdiff1d(regular_players, playoff_players)
         plays = np.setdiff1d(playoff_players, regular_players)
-        # df = data[data['PLAYER_NAME'].isin(regs)][['PLAYER_ID', 'PLAYER_NAME']]
-        temp = find_player_id(data, regs)
-    pass
+        regular_df = pd.concat([regular_df, pd.DataFrame(find_player_id(data, regs))], ignore_index=True)
+        playoff_df = pd.concat([playoff_df, pd.DataFrame(find_player_id(data, plays))], ignore_index=True)
+    regular_df.to_csv('regular_season_only.csv', index=False)
+    playoff_df.to_csv('playoffs_only.csv', index=False)
 
+# find_player_id() is a helper function for playoff_teams() to find the unique ID for each player.
 def find_player_id(data: List[List], players: List) -> Dict:
-    temp = {}
+    player_list = []
+    id_list = []
     if not np.any(players):
-        return temp
+        return {'PLAYER_ID': id_list, 'PLAYER_NAME': player_list}
     else:
         for player in players:
             id = data[data['PLAYER_NAME'] == player]['PLAYER_ID'].head(1)
-            temp.update({id.iloc[0]: player})
-    return temp
+            player_list.append(player)
+            id_list.append(id.iloc[0])
+    return {'PLAYER_ID': id_list, 'PLAYER_NAME': player_list}
 
 def main():
     df = pd.read_csv("nba_player_game_logs.csv")
     df = playoffs(df)
     # avg_stats(df)
-    playoff_teams(df)
+    # playoff_teams(df)
 
 if __name__ == "__main__":
 
