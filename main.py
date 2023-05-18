@@ -39,8 +39,8 @@ def avg_stats(data: List[List]):
 
 # playoffs() identifies which games were in the regular season, the play-in tournament, or the playoffs.
 def playoffs(data: List[List]) -> List[List]:
-    reg_date = datetime.datetime(2022, 5, 12)
-    playoff_date = datetime.datetime(2022, 5, 15)
+    reg_date = datetime.datetime(2022, 4, 12)
+    playoff_date = datetime.datetime(2022, 4, 15)
     format = '%Y-%m-%d'
     dates = data['game_date']
     playoffs = []
@@ -56,12 +56,26 @@ def playoffs(data: List[List]) -> List[List]:
     return data
 
 def playoff_teams(data: List[List]):
+    regular_df = pd.DataFrame(columns=['PLAYER_ID', 'PLAYER_NAME'])
+    playoff_df = pd.DataFrame(columns=['PLAYER_ID', 'PLAYER_NAME'])
+    teams = data.query('PLAYOFFS == "Yes"')['TEAM'].unique()
+    for team in teams:
+        players = data[data['TEAM'] == team]
+        regular_players = players.query('PLAYOFFS == "No"')
+        regular_players = regular_players['PLAYER_NAME'].unique()
+        playoff_players = players.query('PLAYOFFS == "Yes"')
+        playoff_players = playoff_players['PLAYER_NAME'].unique()
+        regs = np.setdiff1d(regular_players, playoff_players)
+        plays = np.setdiff1d(playoff_players, regular_players)
+        df = data[data['PLAYER_NAME'].isin(regs)][['PLAYER_ID', 'PLAYER_NAME']]
+    pass
 
 
 def main():
     df = pd.read_csv("nba_player_game_logs.csv")
     df = playoffs(df)
-    avg_stats(df)
+    # avg_stats(df)
+    playoff_teams(df)
 
 if __name__ == "__main__":
 
