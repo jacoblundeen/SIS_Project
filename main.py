@@ -10,6 +10,7 @@ import math
 from typing import List, Tuple, Dict, Callable
 import datetime
 import random
+import statsmodels.formula.api as smf
 
 random.seed(49)
 
@@ -139,9 +140,16 @@ def after_as_ppg(player_df: List[List], player_list: List) -> List[List]:
     return player_df
 
 
+# all_star() runs logistic regression on the data set and output the statistically significant predictors to a CSV file.
 def all_star(data: List[List]):
     all_stars_df = all_star_players(data)
-    pass
+    all_stars_df = all_stars_df.sample(frac=1).reset_index(drop=True)
+    model = smf.logit("AAS_PPG ~ FG_PCT + FG3A + FTA + AST + TOV + OREB", data=all_stars_df).fit()
+    p_values = model.pvalues
+    p_values = p_values[p_values < 0.05]
+    p_values.drop(labels="Intercept", inplace=True)
+    p_values = pd.DataFrame({'PREDICTOR': p_values.index, 'P_VALUE': p_values.values})
+    p_values.to_csv("logistic_results.csv")
 
 
 def main():
@@ -149,7 +157,7 @@ def main():
     df = preprocess(df)
     # avg_stats(df)
     # playoff_teams(df)
-    all_star(df)
+    # all_star(df)
 
 
 if __name__ == "__main__":
