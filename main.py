@@ -26,7 +26,7 @@ def avg_stats(data: List[List]):
         player_df = data[data['PLAYER_ID'] == player]
         player_df = player_df.sort_values(by='game_date', ascending=False).head(5)
         player_df.drop(columns=['GAME_ID', 'game_date', 'TEAM', 'TEAM_ID', 'PERIOD', 'PLAYER_ID',
-                                'MIN', 'PLAYER_NAME', 'PLAYOFFS'], inplace=True)
+                                'MIN', 'PLAYER_NAME', 'PLAYOFFS', 'ALL_STAR_BREAK'], inplace=True)
         player_df = player_df.sum(axis=0).div(28)
         player_df = pd.DataFrame(player_df).transpose()
         player_df['PLAYER_ID'] = player
@@ -99,8 +99,9 @@ def find_player_id(data: List[List], players: List) -> Dict:
             id_list.append(id.iloc[0])
     return {'PLAYER_ID': id_list, 'PLAYER_NAME': player_list}
 
-# all_star_players() is a helper function to determine the
-def all_star_players(data: List[List]) -> List:
+
+# all_star_players() is a helper function for all_star() to create the data set for the logistic regression.
+def all_star_players(data: List[List]) -> List[List]:
     players = data['PLAYER_NAME'].unique()
     player_list = []
     for player in players:
@@ -116,10 +117,30 @@ def all_star_players(data: List[List]) -> List:
             mpg_after = games_after['MIN'].sum() / games_after.shape[0]
         if games_before.shape[0] > 15 and games_after.shape[0] > 15 and mpg_before > 15 and mpg_after > 15:
             player_list.append(player)
-    return player_list
+    player_df = data.query('PLAYER_NAME == @player_list')
+    player_df = after_as_ppg(player_df, player_list)
+    return player_df
+
+
+# after_as_ppg() is a helper function to all_star_players() to determine which players averaged over 15 PPG after the
+# all star break.
+def after_as_ppg(player_df: List[List], player_list: List) -> List[List]:
+    ppg = {}
+    for player in player_list:
+        player_ppg = player_df.query('ALL_STAR_BREAK  == "After" & PLAYER_NAME == @player')
+        plyr_ppg = player_ppg['PTS'].sum() / player_ppg.shape[0]
+        if plyr_ppg > 15:
+            ppg.update({player: 1})
+        else:
+            ppg.update({player: 0})
+    player_df = player_df.loc[:, ['FG_PCT', 'FG3A', 'FTA', 'AST', 'TOV', 'OREB', 'PLAYER_NAME']]
+    player_df = player_df.groupby('PLAYER_NAME', as_index=False).mean()
+    player_df['AAS_PPG'] = player_df['PLAYER_NAME'].map(ppg)
+    return player_df
+
 
 def all_star(data: List[List]):
-    all_stars = all_star_players(data)
+    all_stars_df = all_star_players(data)
     pass
 
 
