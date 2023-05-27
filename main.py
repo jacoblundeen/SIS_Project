@@ -157,7 +157,11 @@ def all_star(data: List[List]):
 def hist_plots(data: List[List]):
     east_conf = ['ATL', 'BKN', 'BOS', 'CHA', 'CHI', 'CLE', 'DET', 'IND', 'MIA', 'MIL', 'NYK', 'ORL', 'PHI', 'TOR', 'WAS']
     df = data.query('TEAM == @east_conf')
+    # players = df['PLAYER_NAME'].unique().tolist()
+    # teams = df.query('PLAYER_NAME == @players')['TEAM']
     df = df[(df['game_date'] >= '2021-12-01') & (df['game_date'] <= '2021-12-31')]
+    df = df[['PTS', 'PLAYER_NAME', 'TEAM']]
+    df = df.groupby(['TEAM', 'PLAYER_NAME'], as_index=False).sum()
     count = 0
     fig, axes = plt.subplots(nrows=8, ncols=2, figsize=(15, 15))
     for row in axes:
@@ -168,10 +172,10 @@ def hist_plots(data: List[List]):
             team = east_conf[count]
             points_df = df.query('TEAM == @team')
             col.hist(points_df['PTS'], bins=10)
-            col.set_xlabel('Points per Game')
+            col.set_xlabel('Total Points per Player')
             col.set_ylabel(east_conf[count])
             count += 1
-    fig.suptitle('PPG of Eastern Conference Teams During December 2021', fontsize=30)
+    fig.suptitle('Total Points per Player of Eastern Conference Teams During December 2021', fontsize=25)
     fig.tight_layout()
     plt.savefig('team_points_dist.png')
 
