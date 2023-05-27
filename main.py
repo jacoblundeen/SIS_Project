@@ -6,7 +6,7 @@ Date: 20230517
 
 import pandas as pd
 import numpy as np
-import math
+import matplotlib.pyplot as plt
 from typing import List, Tuple, Dict, Callable
 import datetime
 import random
@@ -152,12 +152,37 @@ def all_star(data: List[List]):
     p_values.to_csv("logistic_results.csv")
 
 
+# hist_plots() creates the faceted histograms to display the points per game of the Eastern conference teams during
+# December 2021.
+def hist_plots(data: List[List]):
+    east_conf = ['ATL', 'BKN', 'BOS', 'CHA', 'CHI', 'CLE', 'DET', 'IND', 'MIA', 'MIL', 'NYK', 'ORL', 'PHI', 'TOR', 'WAS']
+    df = data.query('TEAM == @east_conf')
+    df = df[(df['game_date'] >= '2021-12-01') & (df['game_date'] <= '2021-12-31')]
+    count = 0
+    fig, axes = plt.subplots(nrows=8, ncols=2, figsize=(15, 15))
+    for row in axes:
+        for col in row:
+            if count > 14:
+                col.set_axis_off()
+                break
+            team = east_conf[count]
+            points_df = df.query('TEAM == @team')
+            col.hist(points_df['PTS'], bins=10)
+            col.set_xlabel('Points per Game')
+            col.set_ylabel(east_conf[count])
+            count += 1
+    fig.suptitle('PPG of Eastern Conference Teams During December 2021', fontsize=30)
+    fig.tight_layout()
+    plt.savefig('team_points_dist.png')
+
+
 def main():
     df = pd.read_csv("nba_player_game_logs.csv")
     df = preprocess(df)
-    # avg_stats(df)
-    # playoff_teams(df)
-    # all_star(df)
+    avg_stats(df)
+    playoff_teams(df)
+    all_star(df)
+    hist_plots(df)
 
 
 if __name__ == "__main__":
