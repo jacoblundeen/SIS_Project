@@ -13,6 +13,7 @@ import random
 
 random.seed(49)
 
+
 # avg_stats() calculates the average stats, per 28 minutes, for every player in their last 5 games of the regular
 # season.
 def avg_stats(data: List[List]):
@@ -25,25 +26,29 @@ def avg_stats(data: List[List]):
         player_df = data[data['PLAYER_ID'] == player]
         player_df = player_df.sort_values(by='game_date', ascending=False).head(5)
         player_df.drop(columns=['GAME_ID', 'game_date', 'TEAM', 'TEAM_ID', 'PERIOD', 'PLAYER_ID',
-                             'MIN', 'PLAYER_NAME', 'PLAYOFFS'], inplace=True)
+                                'MIN', 'PLAYER_NAME', 'PLAYOFFS'], inplace=True)
         player_df = player_df.sum(axis=0).div(28)
         player_df = pd.DataFrame(player_df).transpose()
         player_df['PLAYER_ID'] = player
 
-        player_df = player_df.loc[:, ['PLAYER_ID', 'FGM', 'FGA', 'FG3M', 'FG3A', 'FTM', 'FTA', 'OREB', 'DREB', 'REB', 'AST',
-                                'TOV', 'STL', 'BLK', 'BLKA', 'PF', 'PFD', 'PTS', 'PLUS_MINUS', 'FG_PCT', 'FG3_PCT',
-                                'FT_PCT']]
+        player_df = player_df.loc[:,
+                    ['PLAYER_ID', 'FGM', 'FGA', 'FG3M', 'FG3A', 'FTM', 'FTA', 'OREB', 'DREB', 'REB', 'AST',
+                     'TOV', 'STL', 'BLK', 'BLKA', 'PF', 'PFD', 'PTS', 'PLUS_MINUS', 'FG_PCT', 'FG3_PCT',
+                     'FT_PCT']]
         df_28 = pd.concat([df_28, player_df], ignore_index=True)
     df_28.to_csv('players_per_28.csv', index=False)
 
 
-# playoffs() identifies which games were in the regular season, the play-in tournament, or the playoffs.
-def playoffs(data: List[List]) -> List[List]:
+# preprocess() identifies which games were in the regular season, the play-in tournament, the playoffs, and before/after
+# the all star break.
+def preprocess(data: List[List]) -> List[List]:
     reg_date = datetime.datetime(2022, 4, 12)
     playoff_date = datetime.datetime(2022, 4, 15)
+    all_star_start = datetime.datetime(2022, 2, 18)
     format = '%Y-%m-%d'
     dates = data['game_date']
     playoffs = []
+    all_star = []
     for date in dates:
         date = datetime.datetime.strptime(date, format)
         if date < reg_date:
@@ -52,8 +57,14 @@ def playoffs(data: List[List]) -> List[List]:
             playoffs.append('Yes')
         else:
             playoffs.append('None')
+        if date < all_star_start:
+            all_star.append('Before')
+        else:
+            all_star.append('After')
     data['PLAYOFFS'] = playoffs
+    data['ALL_STAR_BREAK'] = all_star
     return data
+
 
 # playoff_teams() determines which players only played during the regular season and which only played during the
 # playoffs and outputs those lists to CSV files.
@@ -74,6 +85,7 @@ def playoff_teams(data: List[List]):
     regular_df.to_csv('regular_season_only.csv', index=False)
     playoff_df.to_csv('playoffs_only.csv', index=False)
 
+
 # find_player_id() is a helper function for playoff_teams() to find the unique ID for each player.
 def find_player_id(data: List[List], players: List) -> Dict:
     player_list = []
@@ -87,12 +99,37 @@ def find_player_id(data: List[List], players: List) -> Dict:
             id_list.append(id.iloc[0])
     return {'PLAYER_ID': id_list, 'PLAYER_NAME': player_list}
 
+# all_star_players() is a helper function to determine the
+def all_star_players(data: List[List]) -> List:
+    players = data['PLAYER_NAME'].unique()
+    player_list = []
+    for player in players:
+        games_before = data.query('ALL_STAR_BREAK == "Before" & PLAYER_NAME == @player')
+        games_after = data.query('ALL_STAR_BREAK == "After" & PLAYER_NAME == @player')
+        if games_before.shape[0] == 0:
+            mpg_before = 0
+        else:
+            mpg_before = games_before['MIN'].sum() / games_before.shape[0]
+        if games_after.shape[0] == 0:
+            mpg_after = 0
+        else:
+            mpg_after = games_after['MIN'].sum() / games_after.shape[0]
+        if games_before.shape[0] > 15 and games_after.shape[0] > 15 and mpg_before > 15 and mpg_after > 15:
+            player_list.append(player)
+    return player_list
+
+def all_star(data: List[List]):
+    all_stars = all_star_players(data)
+    pass
+
+
 def main():
     df = pd.read_csv("nba_player_game_logs.csv")
-    df = playoffs(df)
+    df = preprocess(df)
     # avg_stats(df)
     # playoff_teams(df)
+    all_star(df)
+
 
 if __name__ == "__main__":
-
     main()
