@@ -157,8 +157,6 @@ def all_star(data: List[List]):
 def hist_plots(data: List[List]):
     east_conf = ['ATL', 'BKN', 'BOS', 'CHA', 'CHI', 'CLE', 'DET', 'IND', 'MIA', 'MIL', 'NYK', 'ORL', 'PHI', 'TOR', 'WAS']
     df = data.query('TEAM == @east_conf')
-    # players = df['PLAYER_NAME'].unique().tolist()
-    # teams = df.query('PLAYER_NAME == @players')['TEAM']
     df = df[(df['game_date'] >= '2021-12-01') & (df['game_date'] <= '2021-12-31')]
     df = df[['PTS', 'PLAYER_NAME', 'TEAM']]
     df = df.groupby(['TEAM', 'PLAYER_NAME'], as_index=False).sum()
