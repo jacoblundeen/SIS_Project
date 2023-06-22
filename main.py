@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from typing import List, Tuple, Dict, Callable
 import datetime
 import random
-import statsmodels.formula.api as smf
+# import statsmodels.formula.api as smf
 
 random.seed(49)
 
@@ -70,19 +70,14 @@ def preprocess(data: List[List]) -> List[List]:
 # playoff_teams() determines which players only played during the regular season and which only played during the
 # playoffs and outputs those lists to CSV files.
 def playoff_teams(data: List[List]):
-    regular_df = pd.DataFrame(columns=['PLAYER_ID', 'PLAYER_NAME'])
-    playoff_df = pd.DataFrame(columns=['PLAYER_ID', 'PLAYER_NAME'])
-    teams = data.query('PLAYOFFS == "Yes"')['TEAM'].unique()
-    for team in teams:
-        players = data[data['TEAM'] == team]
-        regular_players = players.query('PLAYOFFS == "No"')
-        regular_players = regular_players['PLAYER_NAME'].unique()
-        playoff_players = players.query('PLAYOFFS == "Yes"')
-        playoff_players = playoff_players['PLAYER_NAME'].unique()
-        regs = np.setdiff1d(regular_players, playoff_players)
-        plays = np.setdiff1d(playoff_players, regular_players)
-        regular_df = pd.concat([regular_df, pd.DataFrame(find_player_id(data, regs))], ignore_index=True)
-        playoff_df = pd.concat([playoff_df, pd.DataFrame(find_player_id(data, plays))], ignore_index=True)
+    playoff_players = data.query('PLAYOFFS == "Yes"')['PLAYER_NAME'].unique()
+    regular_players = data.query('PLAYOFFS == "No"')['PLAYER_NAME'].unique()
+    regs = np.setdiff1d(regular_players, playoff_players).tolist()
+    plays = np.setdiff1d(playoff_players, regular_players).tolist()
+    regular_df = data.query('PLAYER_NAME == @regs')[['PLAYER_ID', 'PLAYER_NAME']].\
+        drop_duplicates(subset=['PLAYER_NAME'])
+    playoff_df = data.query('PLAYER_NAME == @plays')[['PLAYER_ID', 'PLAYER_NAME']].\
+        drop_duplicates(subset=['PLAYER_NAME'])
     regular_df.to_csv('regular_season_only.csv', index=False)
     playoff_df.to_csv('playoffs_only.csv', index=False)
 
@@ -181,10 +176,10 @@ def hist_plots(data: List[List]):
 def main():
     df = pd.read_csv("nba_player_game_logs.csv")
     df = preprocess(df)
-    avg_stats(df)
+    # avg_stats(df)
     playoff_teams(df)
-    all_star(df)
-    hist_plots(df)
+    # all_star(df)
+    # hist_plots(df)
 
 
 if __name__ == "__main__":
