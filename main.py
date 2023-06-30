@@ -8,7 +8,6 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from typing import List, Tuple, Dict, Callable
-import datetime
 import random
 # import statsmodels.formula.api as smf
 
@@ -18,52 +17,31 @@ random.seed(49)
 # avg_stats() calculates the average stats, per 28 minutes, for every player in their last 5 games of the regular
 # season.
 def avg_stats(data: List[List]):
-    df_28 = pd.DataFrame(columns=['PLAYER_ID', 'FGM', 'FGA', 'FG3M', 'FG3A', 'FTM', 'FTA', 'OREB', 'DREB', 'REB', 'AST',
-                                  'TOV', 'STL', 'BLK', 'BLKA', 'PF', 'PFD', 'PTS', 'PLUS_MINUS', 'FG_PCT', 'FG3_PCT',
-                                  'FT_PCT'])
     player_df = data.query('PLAYOFFS == "No"')
-    player_ids = player_df['PLAYER_ID'].unique()
-    for player in player_ids:
-        player_df = data[data['PLAYER_ID'] == player]
-        player_df = player_df.sort_values(by='game_date', ascending=False).head(5)
-        player_df.drop(columns=['GAME_ID', 'game_date', 'TEAM', 'TEAM_ID', 'PERIOD', 'PLAYER_ID',
-                                'MIN', 'PLAYER_NAME', 'PLAYOFFS', 'ALL_STAR_BREAK'], inplace=True)
-        player_df = player_df.sum(axis=0).div(28)
-        player_df = pd.DataFrame(player_df).transpose()
-        player_df['PLAYER_ID'] = player
-
-        player_df = player_df.loc[:,
-                    ['PLAYER_ID', 'FGM', 'FGA', 'FG3M', 'FG3A', 'FTM', 'FTA', 'OREB', 'DREB', 'REB', 'AST',
-                     'TOV', 'STL', 'BLK', 'BLKA', 'PF', 'PFD', 'PTS', 'PLUS_MINUS', 'FG_PCT', 'FG3_PCT',
-                     'FT_PCT']]
-        df_28 = pd.concat([df_28, player_df], ignore_index=True)
-    df_28.to_csv('players_per_28.csv', index=False)
+    player_df = player_df.sort_values('game_date').groupby('PLAYER_NAME').tail(5)
+    player_df.drop(columns=['GAME_ID', 'game_date', 'TEAM', 'TEAM_ID', 'PERIOD', 'MIN', 'PLAYOFFS', 'ALL_STAR_BREAK',
+                            'FG_PCT', 'FG3_PCT', 'FT_PCT', 'PLAYER_NAME'], inplace=True)
+    player_df = player_df.groupby('PLAYER_ID').sum().div(28)
+    player_df['FG_PCT'] = np.where(player_df['FGA'] > 0, player_df['FGM'] / player_df['FGA'], 0)
+    player_df['FG3_PCT'] = np.where(player_df['FG3A'] > 0, player_df['FG3M'] / player_df['FG3A'], 0)
+    player_df['FT_PCT'] = np.where(player_df['FTA'] > 0, player_df['FTM'] / player_df['FTA'], 0)
+    player_df.reset_index(inplace=True)
+    player_df = player_df.rename(columns={'index': 'PLAYER_ID'})
+    player_df.to_csv('players_per_28.csv', index=False)
 
 
 # preprocess() identifies which games were in the regular season, the play-in tournament, the playoffs, and before/after
 # the all star break.
 def preprocess(data: List[List]) -> List[List]:
-    reg_date = datetime.datetime(2022, 4, 12)
-    playoff_date = datetime.datetime(2022, 4, 15)
-    all_star_start = datetime.datetime(2022, 2, 18)
-    format = '%Y-%m-%d'
-    dates = data['game_date']
-    playoffs = []
-    all_star = []
-    for date in dates:
-        date = datetime.datetime.strptime(date, format)
-        if date < reg_date:
-            playoffs.append('No')
-        elif date > playoff_date:
-            playoffs.append('Yes')
-        else:
-            playoffs.append('None')
-        if date < all_star_start:
-            all_star.append('Before')
-        else:
-            all_star.append('After')
-    data['PLAYOFFS'] = playoffs
-    data['ALL_STAR_BREAK'] = all_star
+    playoff_conditions = [(data['game_date'] < '2022-04-11'),
+                          (data['game_date'] > '2022-04-11') & (data['game_date'] < '2022-04-15'),
+                          (data['game_date'] > '2022-04-15')]
+    playoff_values = ['No', 'None', 'Yes']
+    allstar_conditions = [(data['game_date'] < '2022-02-18'),
+                          (data['game_date'] > '2002-02-23')]
+    allstar_value = ['Before', 'After']
+    data['PLAYOFFS'] = np.select(playoff_conditions, playoff_values)
+    data['ALL_STAR_BREAK'] = np.select(allstar_conditions, allstar_value)
     return data
 
 
@@ -74,31 +52,18 @@ def playoff_teams(data: List[List]):
     regular_players = data.query('PLAYOFFS == "No"')['PLAYER_NAME'].unique()
     regs = np.setdiff1d(regular_players, playoff_players).tolist()
     plays = np.setdiff1d(playoff_players, regular_players).tolist()
-    regular_df = data.query('PLAYER_NAME == @regs')[['PLAYER_ID', 'PLAYER_NAME']].\
+    regular_df = data.query('PLAYER_NAME == @regs')[['PLAYER_ID', 'PLAYER_NAME']]. \
         drop_duplicates(subset=['PLAYER_NAME'])
-    playoff_df = data.query('PLAYER_NAME == @plays')[['PLAYER_ID', 'PLAYER_NAME']].\
+    playoff_df = data.query('PLAYER_NAME == @plays')[['PLAYER_ID', 'PLAYER_NAME']]. \
         drop_duplicates(subset=['PLAYER_NAME'])
     regular_df.to_csv('regular_season_only.csv', index=False)
     playoff_df.to_csv('playoffs_only.csv', index=False)
 
 
-# find_player_id() is a helper function for playoff_teams() to find the unique ID for each player.
-def find_player_id(data: List[List], players: List) -> Dict:
-    player_list = []
-    id_list = []
-    if not np.any(players):
-        return {'PLAYER_ID': id_list, 'PLAYER_NAME': player_list}
-    else:
-        for player in players:
-            id = data[data['PLAYER_NAME'] == player]['PLAYER_ID'].head(1)
-            player_list.append(player)
-            id_list.append(id.iloc[0])
-    return {'PLAYER_ID': id_list, 'PLAYER_NAME': player_list}
-
-
 # all_star_players() is a helper function for all_star() to create the data set for the logistic regression.
 def all_star_players(data: List[List]) -> List[List]:
     players = data['PLAYER_NAME'].unique()
+    df = data.query('PLAYOFFS != None')
     player_list = []
     for player in players:
         games_before = data.query('ALL_STAR_BREAK == "Before" & PLAYER_NAME == @player')
@@ -150,7 +115,8 @@ def all_star(data: List[List]):
 # hist_plots() creates the faceted histograms to display the points per game of the Eastern conference teams during
 # December 2021.
 def hist_plots(data: List[List]):
-    east_conf = ['ATL', 'BKN', 'BOS', 'CHA', 'CHI', 'CLE', 'DET', 'IND', 'MIA', 'MIL', 'NYK', 'ORL', 'PHI', 'TOR', 'WAS']
+    east_conf = ['ATL', 'BKN', 'BOS', 'CHA', 'CHI', 'CLE', 'DET', 'IND', 'MIA', 'MIL', 'NYK', 'ORL', 'PHI', 'TOR',
+                 'WAS']
     df = data.query('TEAM == @east_conf')
     df = df[(df['game_date'] >= '2021-12-01') & (df['game_date'] <= '2021-12-31')]
     df = df[['PTS', 'PLAYER_NAME', 'TEAM']]
@@ -177,8 +143,8 @@ def main():
     df = pd.read_csv("nba_player_game_logs.csv")
     df = preprocess(df)
     # avg_stats(df)
-    playoff_teams(df)
-    # all_star(df)
+    # playoff_teams(df)
+    all_star(df)
     # hist_plots(df)
 
 
