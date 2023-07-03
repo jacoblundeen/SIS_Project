@@ -6,10 +6,9 @@ Date: 20230517
 
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-from typing import List, Tuple, Dict, Callable
+from plotnine import *
+from typing import *
 import random
-
 import statsmodels.formula.api as smf
 
 random.seed(49)
@@ -83,7 +82,7 @@ def all_star_players(data: List[List]) -> List[List]:
 # all star break.
 def after_as_ppg(player_df: List[List]) -> List[List]:
     asb_df = player_df.query('ALL_STAR_BREAK == "After"')
-    asb_df = asb_df.groupby('PLAYER_NAME').agg({'GAME_ID': 'count', 'PTS': 'sum'}).reset_index().\
+    asb_df = asb_df.groupby('PLAYER_NAME').agg({'GAME_ID': 'count', 'PTS': 'sum'}).reset_index(). \
         rename(columns={'GAME_ID': 'GAMES', 'PTS': 'TOTAL_POINTS'})
     asb_df['PPG'] = asb_df['TOTAL_POINTS'] / asb_df['GAMES']
     asb_df['AAS_PPG'] = np.where(asb_df['PPG'] > 15, 1, 0)
@@ -112,33 +111,28 @@ def hist_plots(data: List[List]):
                  'WAS']
     df = data.query('TEAM == @east_conf')
     df = df[(df['game_date'] >= '2021-12-01') & (df['game_date'] <= '2021-12-31')]
-    df = df[['PTS', 'PLAYER_NAME', 'TEAM']]
-    df = df.groupby(['TEAM', 'PLAYER_NAME'], as_index=False).sum()
-    count = 0
-    fig, axes = plt.subplots(nrows=8, ncols=2, figsize=(15, 15))
-    for row in axes:
-        for col in row:
-            if count > 14:
-                col.set_axis_off()
-                break
-            team = east_conf[count]
-            points_df = df.query('TEAM == @team')
-            col.hist(points_df['PTS'], bins=10)
-            col.set_xlabel('Total Points per Player')
-            col.set_ylabel(east_conf[count])
-            count += 1
-    fig.suptitle('Total Points per Player of Eastern Conference Teams During December 2021', fontsize=25)
-    fig.tight_layout()
-    plt.savefig('team_points_dist.png')
+    plt1 = ggplot(df, aes(x='PTS')) + \
+           geom_histogram(bins=30) + \
+           facet_wrap('TEAM', ncol=5) + \
+           labs(
+               y="Frequency",
+               x="Points",
+               title="NBA Eastern Conference Player Point Distributions",
+               subtitle="Games in December 2021 Only"
+           ) + \
+           theme_bw() + \
+           theme(figure_size=(20, 10), plot_title=element_text(size=12, face='bold'),
+                 plot_subtitle=element_text(face='italic'))
+    ggsave(plt1, filename='team_points_dist.png')
 
 
 def main():
     df = pd.read_csv("nba_player_game_logs.csv")
     df = preprocess(df)
-    # avg_stats(df)
-    # playoff_teams(df)
+    avg_stats(df)
+    playoff_teams(df)
     all_star(df)
-    # hist_plots(df)
+    hist_plots(df)
 
 
 if __name__ == "__main__":
