@@ -9,7 +9,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from typing import List, Tuple, Dict, Callable
 import random
-# import statsmodels.formula.api as smf
+
+import statsmodels.formula.api as smf
 
 random.seed(49)
 
@@ -62,41 +63,33 @@ def playoff_teams(data: List[List]):
 
 # all_star_players() is a helper function for all_star() to create the data set for the logistic regression.
 def all_star_players(data: List[List]) -> List[List]:
-    players = data['PLAYER_NAME'].unique()
-    df = data.query('PLAYOFFS != None')
-    player_list = []
-    for player in players:
-        games_before = data.query('ALL_STAR_BREAK == "Before" & PLAYER_NAME == @player')
-        games_after = data.query('ALL_STAR_BREAK == "After" & PLAYER_NAME == @player')
-        if games_before.shape[0] == 0:
-            mpg_before = 0
-        else:
-            mpg_before = games_before['MIN'].sum() / games_before.shape[0]
-        if games_after.shape[0] == 0:
-            mpg_after = 0
-        else:
-            mpg_after = games_after['MIN'].sum() / games_after.shape[0]
-        if games_before.shape[0] > 15 and games_after.shape[0] > 15 and mpg_before > 15 and mpg_after > 15:
-            player_list.append(player)
+    before_AS = data.query('ALL_STAR_BREAK == "Before"')[['PLAYER_NAME', 'MIN', 'GAME_ID']]
+    before_AS = before_AS.groupby('PLAYER_NAME').agg({'GAME_ID': 'count', 'MIN': 'sum'}).reset_index(). \
+        rename(columns={'GAME_ID': 'GAMES', 'MIN': 'TOTAL_MIN'})
+    before_AS['MPG'] = before_AS['TOTAL_MIN'] / before_AS['GAMES']
+    before_players = before_AS.query('GAMES > 15 & MPG > 15')['PLAYER_NAME'].unique()
+    after_AS = data.query('ALL_STAR_BREAK == "After"')
+    after_AS = after_AS.groupby('PLAYER_NAME').agg({'GAME_ID': 'count', 'MIN': 'sum'}).reset_index(). \
+        rename(columns={'GAME_ID': 'GAMES', 'MIN': 'TOTAL_MIN'})
+    after_AS['MPG'] = after_AS['TOTAL_MIN'] / after_AS['GAMES']
+    after_players = after_AS.query('GAMES > 15 & MPG > 15')['PLAYER_NAME'].unique()
+    player_list = np.intersect1d(before_players, after_players).tolist()
     player_df = data.query('PLAYER_NAME == @player_list')
-    player_df = after_as_ppg(player_df, player_list)
+    player_df = after_as_ppg(player_df)
     return player_df
 
 
 # after_as_ppg() is a helper function to all_star_players() to determine which players averaged over 15 PPG after the
 # all star break.
-def after_as_ppg(player_df: List[List], player_list: List) -> List[List]:
-    ppg = {}
-    for player in player_list:
-        player_ppg = player_df.query('ALL_STAR_BREAK  == "After" & PLAYER_NAME == @player')
-        plyr_ppg = player_ppg['PTS'].sum() / player_ppg.shape[0]
-        if plyr_ppg > 15:
-            ppg.update({player: 1})
-        else:
-            ppg.update({player: 0})
+def after_as_ppg(player_df: List[List]) -> List[List]:
+    asb_df = player_df.query('ALL_STAR_BREAK == "After"')
+    asb_df = asb_df.groupby('PLAYER_NAME').agg({'GAME_ID': 'count', 'PTS': 'sum'}).reset_index().\
+        rename(columns={'GAME_ID': 'GAMES', 'PTS': 'TOTAL_POINTS'})
+    asb_df['PPG'] = asb_df['TOTAL_POINTS'] / asb_df['GAMES']
+    asb_df['AAS_PPG'] = np.where(asb_df['PPG'] > 15, 1, 0)
     player_df = player_df.loc[:, ['FG_PCT', 'FG3A', 'FTA', 'AST', 'TOV', 'OREB', 'PLAYER_NAME']]
     player_df = player_df.groupby('PLAYER_NAME', as_index=False).mean()
-    player_df['AAS_PPG'] = player_df['PLAYER_NAME'].map(ppg)
+    player_df['AAS_PPG'] = player_df['PLAYER_NAME'].map(dict(zip(asb_df.PLAYER_NAME, asb_df.AAS_PPG)))
     return player_df
 
 
